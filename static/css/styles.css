@@ -1,57 +1,78 @@
 body {
-    background-color: #282a36;
-    color: #f8f8f2;
+  background-color: #282a36;
+  color: #f8f8f2;
 }
 
 .navbar,
 .footer {
-    background-color: #44475a;
+  background-color: #44475a;
+}
+
+.accent-text {
+  color: #8be9fd;
+}
+
+.btn-purple,
+.btn-secondary {
+  color: #282a36;
+  font-weight: 700;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .btn-purple {
-    background-color: #bd93f9;
-    color: #282a36;
+  background-color: #bd93f9;
 }
 
-.btn-purple:hover {
-    background-color: #ff79c6;
-    color: #282a36;
+.btn-secondary {
+  background-color: #8be9fd;
+}
+
+.btn-purple:hover,
+.btn-secondary:hover {
+  background-color: #ff79c6;
+  transform: translateY(-1px);
+}
+
+.btn-purple:disabled,
+.btn-secondary:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
 }
 
 .card {
-    background-color: #44475a;
-    border: 1px solid #6272a4;
+  background-color: #44475a;
+  border: 1px solid #6272a4;
+}
+
+.badge {
+  background-color: #50fa7b;
+  border-radius: 9999px;
+  color: #282a36;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.25rem 0.75rem;
+}
+
+.status-message {
+  color: #f1fa8c;
+  min-height: 1.5rem;
+}
+
+.solution-output {
+  background-color: #282a36;
+  border: 1px solid #6272a4;
+  border-radius: 0.5rem;
+  color: #f8f8f2;
+  min-height: 18rem;
+  padding: 1rem;
 }
 
 .hover-effect {
-    transition: transform 0.3s, color 0.3s;
+  transition: transform 0.3s, color 0.3s;
 }
 
 .hover-effect:hover {
-    transform: scale(1.2);
-    color: #4A90E2;
-    /* Change to your desired hover color */
-}
-
-.animate-bounce {
-    animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-
-    0%,
-    20%,
-    50%,
-    80%,
-    100% {
-        transform: translateY(0);
-    }
-
-    40% {
-        transform: translateY(-30px);
-    }
-
-    60% {
-        transform: translateY(-15px);
-    }
+  color: #8be9fd;
+  transform: scale(1.05);
 }

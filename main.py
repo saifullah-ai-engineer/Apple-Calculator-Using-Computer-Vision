@@ -1,96 +1,112 @@
-import cv2 as cv
-import mediapipe as mp
-import numpy as np
+"""Standalone desktop entry point for MathCam.
+
+The recommended experience is the Flask UI (`python app.py`), but this script is
+kept for users who want a simple OpenCV window without the web interface.
+"""
+
 import os
+from pathlib import Path
+
+import cv2 as cv
+import numpy as np
+
 import handTrack as ht
 
-brushThickness = 15
-eraserThickness = 100
+BASE_DIR = Path(__file__).resolve().parent
+ASSETS_DIR = BASE_DIR / "assets"
+CANVAS_PATH = BASE_DIR / "saved_canvas.jpg"
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 720
+HEADER_HEIGHT = 125
+BRUSH_THICKNESS = 15
+ERASER_THICKNESS = 100
 
-folderPath = "assets"
-mylist = os.listdir(folderPath)
-print(mylist)
-overlayList = []
+
+def load_overlays():
+    overlays = []
+    for image_path in sorted(ASSETS_DIR.glob("*.png")):
+        image = cv.imread(str(image_path))
+        if image is not None:
+            overlays.append(cv.resize(image, (FRAME_WIDTH, HEADER_HEIGHT)))
+    if len(overlays) < 4:
+        raise RuntimeError("Expected at least four PNG toolbar images in assets/.")
+    return overlays
 
 
-for imPath in mylist:
-    image = cv.imread(f"{folderPath}/{imPath}")
-    overlayList.append(image)
+def main():
+    overlays = load_overlays()
+    active_overlay = 0
+    draw_color = (0, 0, 255)
+    xp, yp = 0, 0
+    img_canvas = np.zeros((FRAME_HEIGHT, FRAME_WIDTH, 3), np.uint8)
 
-print(len(overlayList))
-asset = overlayList[0]
+    cap = cv.VideoCapture(0)
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+    detector = ht.handDetector(detectionCon=0.85)
 
-drawColor = (255, 0, 255)
+    while True:
+        success, img = cap.read()
+        if not success:
+            print("Camera not available.")
+            break
 
-cap = cv.VideoCapture(0)
-cap.set(3, 1280)
-cap.set(4, 720)
+        img = cv.flip(img, 1)
+        img = detector.findHands(img)
+        lm_list = detector.findPosition(img, draw=False)
 
-detector = ht.handDetector(detectionCon=0.85)
-xp, yp = 0, 0
+        if lm_list:
+            x1, y1 = lm_list[8][1:]
+            x2, y2 = lm_list[12][1:]
+            fingers = detector.fingersUp()
 
-imgCanvas = np.zeros((720, 1280, 3), np.uint8)
+            if fingers == [1, 1, 0, 0, 0]:
+                cv.imwrite(str(CANVAS_PATH), img_canvas)
 
-while True:
-    success, img = cap.read()
-    img = cv.flip(img, 1)
+            if fingers[1] and fingers[2]:
+                xp, yp = 0, 0
+                cv.rectangle(img, (x1, y1 - 25), (x2, y2 + 25), draw_color, cv.FILLED)
 
-    img = detector.findHands(img)
-    lmList = detector.findPosition(img, draw=False)
+                if y1 < HEADER_HEIGHT:
+                    if 250 < x1 < 450:
+                        active_overlay = 0
+                        draw_color = (0, 0, 255)
+                    elif 550 < x1 < 750:
+                        active_overlay = 1
+                        draw_color = (255, 0, 0)
+                    elif 800 < x1 < 950:
+                        active_overlay = 2
+                        draw_color = (0, 255, 0)
+                    elif 1050 < x1 < 1200:
+                        active_overlay = 3
+                        draw_color = (0, 0, 0)
 
-    if len(lmList) != 0:
-        # Tip of index and middle fingers
-        x1, y1 = lmList[8][1:]
-        x2, y2 = lmList[12][1:]
+            if fingers[1] and not fingers[2]:
+                cv.circle(img, (x1, y1), 15, draw_color, cv.FILLED)
+                if xp == 0 and yp == 0:
+                    xp, yp = x1, y1
 
-        fingers = detector.fingersUp()
-
-        if fingers[1] and fingers[2]:
-            xp, yp = 0, 0
-            cv.rectangle(img, (x1, y1 - 25), (x2, y2 + 25), drawColor, cv.FILLED) # Selection Mode
-
-            if y1 < 125:
-                if 250 < x1 < 450:
-                    asset = overlayList[0]
-                    drawColor = (255, 0, 255)
-                    cv.imwrite("saved_canvas.jpg", imgCanvas)
-                    os.system("python app.py")
-                elif 550 < x1 < 750:
-                    asset = overlayList[1]
-                    drawColor = (255, 0, 0)
-                    cv.imwrite("saved_canvas.jpg", imgCanvas)
-                elif 800 < x1 < 950:
-                    asset = overlayList[2]
-                    drawColor = (0, 255, 0)
-                    cv.imwrite("saved_canvas.jpg", imgCanvas)
-                elif 1050 < x1 < 1200:
-                    asset = overlayList[3]
-                    drawColor = (0, 0, 0)
-                    cv.imwrite("saved_canvas.jpg", imgCanvas)
-
-        if fingers[1] and not fingers[2]:
-            cv.circle(img, (x1, y1), 15, drawColor, cv.FILLED) # Drawing Mode
-            if xp == 0 and yp == 0:
+                thickness = ERASER_THICKNESS if draw_color == (0, 0, 0) else BRUSH_THICKNESS
+                cv.line(img, (xp, yp), (x1, y1), draw_color, thickness)
+                cv.line(img_canvas, (xp, yp), (x1, y1), draw_color, thickness)
                 xp, yp = x1, y1
 
-            if drawColor == (0, 0, 0):
-                cv.line(img, (xp, yp), (x1, y1), drawColor, eraserThickness)
-                cv.line(imgCanvas, (xp, yp), (x1, y1), drawColor, eraserThickness)
-            else:
-                cv.line(img, (xp, yp), (x1, y1), drawColor, brushThickness)
-                cv.line(imgCanvas, (xp, yp), (x1, y1), drawColor, brushThickness)
-            xp, yp = x1, y1
+        img_gray = cv.cvtColor(img_canvas, cv.COLOR_BGR2GRAY)
+        _, img_inv = cv.threshold(img_gray, 50, 255, cv.THRESH_BINARY_INV)
+        img_inv = cv.cvtColor(img_inv, cv.COLOR_GRAY2BGR)
+        img = cv.bitwise_and(img, img_inv)
+        img = cv.bitwise_or(img, img_canvas)
+        img[0:HEADER_HEIGHT, 0:FRAME_WIDTH] = overlays[active_overlay]
 
-    imgGray = cv.cvtColor(imgCanvas, cv.COLOR_BGR2GRAY)
-    _, imgInv = cv.threshold(imgGray, 50, 255, cv.THRESH_BINARY_INV)
-    imgInv = cv.cvtColor(imgInv, cv.COLOR_GRAY2BGR)
-    img = cv.bitwise_and(img, imgInv)
-    img = cv.bitwise_or(img, imgCanvas)
+        cv.imshow("MathCam", img)
+        if cv.waitKey(1) & 0xFF == ord("q"):
+            break
 
-    # Setting up the header image
-    img[0:125, 0:1280] = asset
-    img = cv.addWeighted(img, 0.5, imgCanvas, 0.5, 0)
-    cv.imshow("Image", img)
-    cv.imshow("Canvas", imgCanvas)
-    cv.imshow("Inv", imgInv)
-    cv.waitKey(1)
+    cv.imwrite(str(CANVAS_PATH), img_canvas)
+    cap.release()
+    cv.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    os.environ.setdefault("OPENCV_VIDEOIO_PRIORITY_MSMF", "0")
+    main()
